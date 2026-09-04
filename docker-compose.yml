@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    image: emrecyhn/assesment:latest
+    restart: unless-stopped
+    # Artık host'a doğrudan açılmıyor; sadece nginx'in erişebildiği
+    # internal docker network üzerinden konuşulur (nginx -> app:3000).
+    # Yerelde `pnpm dev` ile 3000'i kullanmaya devam edebilmek için
+    # istersen APP_PORT ile geçici olarak host'a da açabilirsin:
+    #   APP_PORT=3000 docker compose up
+    expose:
+      - "3000"
+    environment:
+      # Container-to-container: reach Postgres by service name, not localhost.
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:

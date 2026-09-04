@@ -1,0 +1,26 @@
+# Build context hygiene: keep local state and secrets out of the image.
+node_modules
+.next
+.git
+.gitignore
+
+# Secrets — the runtime gets DATABASE_URL from the environment, never baked in.
+.env
+.env.*
+!.env.example
+
+# Local tooling / editor state
+.claude
+.vscode
+.idea
+*.log
+npm-debug.log*
+tsconfig.tsbuildinfo
+
+# Not needed to build or run the server
+Dockerfile
+.dockerignore
+docker-compose.yml
+README.md
+NOTES.md
+coverage

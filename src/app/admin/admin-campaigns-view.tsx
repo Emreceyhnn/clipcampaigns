@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,8 +36,7 @@ import type { CampaignStatus } from "@/lib/validations/campaign";
 // Radix Select has no empty-string value, so "all" stands in for no filter.
 const ALL_STATUSES = "all";
 
-// Spend approaching the cap is the thing an admin needs to notice, so the bar
-// shifts colour before it gets there.
+// The bar shifts colour before spend reaches the cap.
 function BudgetUsage({
   spentCents,
   totalCents,
@@ -73,7 +73,25 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   completed: "secondary",
 };
 
+// Waiting clips get a badge; nothing waiting is a dash rather than a zero.
+function PendingReviews({ count }: { count: number }) {
+  if (count === 0) {
+    return (
+      <span className="text-muted-foreground" aria-label="No pending reviews">
+        —
+      </span>
+    );
+  }
+
+  return (
+    <Badge variant="secondary" className="tabular-nums">
+      {count} pending
+    </Badge>
+  );
+}
+
 export function AdminCampaignsView() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -150,6 +168,7 @@ export function AdminCampaignsView() {
             <TableHead>Platforms</TableHead>
             <TableHead>Payout / 1k views</TableHead>
             <TableHead>Budget</TableHead>
+            <TableHead>Pending reviews</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -157,49 +176,81 @@ export function AdminCampaignsView() {
         <TableBody>
           {isLoading && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
+              <TableCell colSpan={7} className="text-center text-muted-foreground">
                 Loading...
               </TableCell>
             </TableRow>
           )}
           {!isLoading && data?.items.length === 0 && (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
+              <TableCell colSpan={7} className="text-center text-muted-foreground">
                 No campaigns
               </TableCell>
             </TableRow>
           )}
-          {data?.items.map((campaign) => (
-            <TableRow key={campaign.id}>
-              <TableCell className="max-w-56 font-medium">
-                <Link
-                  href={`/admin/campaigns/${campaign.id}`}
-                  className="block overflow-hidden text-ellipsis hover:underline"
-                  title={campaign.title}
-                >
-                  {campaign.title}
-                </Link>
-              </TableCell>
-              <TableCell>{campaign.platforms.join(", ")}</TableCell>
-              <TableCell>{formatCents(campaign.payoutPer1kViewsCents)}</TableCell>
-              <TableCell className="w-56">
-                <BudgetUsage
-                  spentCents={campaign.budgetSpentCents}
-                  totalCents={campaign.totalBudgetCents}
-                />
-              </TableCell>
-              <TableCell>
-                <Badge variant={statusVariant[campaign.status] ?? "outline"}>
-                  {campaign.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button asChild variant="ghost" size="sm">
-                  <Link href={`/admin/campaigns/${campaign.id}/edit`}>Edit</Link>
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+          {data?.items.map((campaign) => {
+            const href = `/admin/campaigns/${campaign.id}`;
+            return (
+              <TableRow
+                key={campaign.id}
+                onClick={() => router.push(href)}
+                onMouseEnter={() => router.prefetch(href)}
+                onKeyDown={(e) => {
+                  // Enter/Space on the row itself; controls inside handle their own.
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    router.push(href);
+                  }
+                }}
+                tabIndex={0}
+                role="link"
+                aria-label={`Open campaign ${campaign.title}`}
+                className="cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              >
+                <TableCell className="max-w-56 font-medium">
+                  {/* Still a real anchor: the row handles a plain click, this
+                      keeps middle-click and "open in new tab" working. */}
+                  <Link
+                    href={href}
+                    className="block overflow-hidden text-ellipsis hover:underline"
+                    title={campaign.title}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {campaign.title}
+                  </Link>
+                </TableCell>
+                <TableCell>{campaign.platforms.join(", ")}</TableCell>
+                <TableCell>{formatCents(campaign.payoutPer1kViewsCents)}</TableCell>
+                <TableCell className="w-56">
+                  <BudgetUsage
+                    spentCents={campaign.budgetSpentCents}
+                    totalCents={campaign.totalBudgetCents}
+                  />
+                </TableCell>
+                <TableCell>
+                  <PendingReviews count={campaign.pendingSubmissionCount} />
+                </TableCell>
+                <TableCell>
+                  <Badge variant={statusVariant[campaign.status] ?? "outline"}>
+                    {campaign.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  {/* Edit is a different destination than the row's, so its
+                      click must not also trigger the row navigation. */}
+                  <Button asChild variant="ghost" size="sm">
+                    <Link
+                      href={`${href}/edit`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      Edit
+                    </Link>
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
 

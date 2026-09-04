@@ -4,9 +4,8 @@ import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
-// Landing page redirect target for requireRole(): shows why the visitor got
-// bounced back here, then strips the query param so a refresh doesn't
-// re-fire the toast.
+// Redirect target for requireRole(). Strips the query param afterwards so a
+// refresh doesn't re-fire the toast.
 export function AuthErrorToast() {
   const searchParams = useSearchParams();
   const router = useRouter();

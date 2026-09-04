@@ -1,0 +1,1 @@
+CREATE INDEX "submissions_campaign_pending_idx" ON "submissions" USING btree ("campaign_id") WHERE "submissions"."status" = 'pending';

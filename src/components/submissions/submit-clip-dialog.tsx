@@ -122,8 +122,7 @@ export function SubmitClipDialog({ campaignId }: { campaignId: string }) {
                       {...field}
                       onChange={(e) => {
                         field.onChange(e);
-                        // Platform is derived entirely from the URL, so it
-                        // has to update (or fail validation) on every change.
+                        // Platform is derived from the URL, so it updates on every change.
                         const detected = detectPlatformFromUrl(e.target.value);
                         form.setValue("platform", detected ?? "tiktok", {
                           shouldValidate: form.formState.isSubmitted,

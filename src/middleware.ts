@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-// No real auth in this skeleton: whoever shows up with no userEmail cookie
-// yet is treated as the first user and signed in as admin automatically.
+// No real auth: a visitor with no userEmail cookie is signed in as admin.
 const DEFAULT_ADMIN_EMAIL = "admin@example.com";
 
 export function middleware(request: NextRequest) {

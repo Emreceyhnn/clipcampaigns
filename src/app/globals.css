@@ -90,12 +90,10 @@ body {
   }
 }
 
-/* WebKit's own calendar glyph carries browser-controlled padding that
-   margin/padding overrides can't fully strip, so it never lands flush
-   against the border. Instead, stretch its hit area over the whole input
-   (invisible) and let a real SVG icon absolutely positioned in the wrapper
-   (see the date fields in campaign-form.tsx) sit exactly on the edge —
-   clicking anywhere still opens the native picker. */
+/* WebKit's calendar glyph keeps browser-controlled padding that can't be
+   stripped, so it never sits flush against the border. Stretch its hit area
+   over the whole input invisibly and position a real SVG icon in the wrapper
+   instead (see the date fields in campaign-form.tsx). */
 input[type="date"] {
   position: relative;
 }

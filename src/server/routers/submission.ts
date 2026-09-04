@@ -9,8 +9,7 @@ import { db } from "../db";
 import { campaigns, submissionMetrics, submissions } from "../db/schema";
 import { campaignApprovedTotals, latestViewsBySubmission } from "../metrics";
 
-// Stands in for fetching the platform's view count at submission time, so a
-// new clip has a real effect on campaign spend as soon as it's approved.
+// Stands in for fetching the platform's view count at submission time.
 const MIN_INITIAL_VIEWS = 1000;
 const MAX_INITIAL_VIEWS = 10000;
 
@@ -92,8 +91,7 @@ export const submissionRouter = router({
           return created;
         });
       } catch (error) {
-        // Backstop for the unique (campaignId, postUrl) constraint in case of
-        // a race between the pre-check above and the insert.
+        // Backstop for a race between the pre-check above and the insert.
         throw new TRPCError({
           code: "CONFLICT",
           message: "This URL has already been submitted to this campaign",
@@ -177,8 +175,8 @@ export const submissionRouter = router({
           return updated;
         }
 
-        // Lock the campaign row so concurrent approvals serialize here rather
-        // than racing on a stale read of current spend.
+        // Lock the campaign row so concurrent approvals serialize rather than
+        // racing on a stale read of current spend.
         const [campaign] = await tx
           .select()
           .from(campaigns)

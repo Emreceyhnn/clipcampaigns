@@ -7,9 +7,8 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set.");
 }
 
-// Runs on every container start (see docker-entrypoint.sh) so a fresh VPS
-// deploy gets its schema applied automatically instead of needing someone to
-// run drizzle-kit by hand against the new database.
+// Runs on every container start (see docker-entrypoint.sh) so a fresh deploy
+// gets its schema applied without running drizzle-kit by hand.
 async function main() {
   const client = postgres(process.env.DATABASE_URL!, { max: 1 });
   const db = drizzle(client);

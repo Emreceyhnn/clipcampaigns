@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { campaignFormSchema, campaignUpdateSchema } from "./campaign";
 
-// The schema now takes calendar days as YYYY-MM-DD strings (see campaign.ts
-// for why), keyed off UTC so these tests behave the same regardless of the
-// machine's local time zone.
+// Keyed off UTC so these behave the same regardless of the machine's time zone.
 function daysFromToday(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + n);
@@ -39,8 +37,7 @@ describe("campaignFormSchema (create)", () => {
   });
 
   it("accepts a start date of yesterday (time zone tolerance)", () => {
-    // Anyone up to a day behind UTC still sees this as "today" on their own
-    // clock, so the schema allows one day of slack either way.
+    // The schema allows one day of slack; see campaign.ts.
     const result = campaignFormSchema.safeParse({
       ...base,
       startsAt: daysFromToday(-1),

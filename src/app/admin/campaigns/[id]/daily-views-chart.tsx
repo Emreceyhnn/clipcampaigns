@@ -10,8 +10,7 @@ import {
   YAxis,
 } from "recharts";
 
-// Loaded via next/dynamic from the detail view: recharts is ~130 kB and the
-// chart sits below the fold, so it stays out of the initial bundle.
+// Loaded via next/dynamic: recharts is ~130 kB and the chart sits below the fold.
 export default function DailyViewsChart({
   data,
 }: {

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   pgEnum,
@@ -6,6 +7,7 @@ import {
   integer,
   timestamp,
   date,
+  index,
   jsonb,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -66,6 +68,11 @@ export const submissions = pgTable(
       table.campaignId,
       table.postUrl
     ),
+    // Serves the admin list's pending counts and the review queue. Partial
+    // because pending rows are the short-lived minority.
+    index("submissions_campaign_pending_idx")
+      .on(table.campaignId)
+      .where(sql`${table.status} = 'pending'`),
   ]
 );
 

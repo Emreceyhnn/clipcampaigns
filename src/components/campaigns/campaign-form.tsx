@@ -38,10 +38,8 @@ const platformOptions = ["tiktok", "instagram", "youtube"] as const;
 
 type CampaignFormInput = z.input<typeof campaignFormSchema>;
 
-// The form works in YYYY-MM-DD strings throughout — what <input type="date">
-// speaks and what the schema accepts — so no value passes through a
-// time-zone-sensitive Date. Stored dates are UTC midnight and come back as
-// either a Date or an ISO string, so read UTC fields to keep the day stable.
+// Stored dates are UTC midnight and arrive as a Date or an ISO string; read
+// UTC fields so the day does not shift.
 function toDateInput(value: unknown): string {
   if (typeof value === "string") return value.slice(0, 10);
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -52,8 +50,6 @@ function toDateInput(value: unknown): string {
   return "";
 }
 
-// The user's own local calendar day, not UTC, so the default date matches
-// the one on their calendar wherever they are.
 function todayDateInput(): string {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -61,8 +57,6 @@ function todayDateInput(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-// Arithmetic stays in UTC start to finish; going through a local midnight
-// can land on a different UTC day and silently lose one.
 function addDaysToDateInput(date: string, days: number): string {
   const [year, month, day] = date.split("-").map(Number);
   const d = new Date(Date.UTC(year, month - 1, day));
@@ -76,8 +70,7 @@ export function CampaignForm({
   onSubmitLabel = "Create campaign",
 }: {
   campaignId?: string;
-  // No Date transformer on the tRPC link, so these arrive as ISO strings at
-  // runtime even though the router's inferred type says Date.
+  // No Date transformer on the tRPC link, so these arrive as ISO strings.
   defaultValues?: Partial<Omit<CampaignFormValues, "startsAt" | "endsAt">> & {
     startsAt?: Date | string;
     endsAt?: Date | string;
@@ -87,16 +80,14 @@ export function CampaignForm({
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  // Only new campaigns are held to "today or later" — an existing campaign that
-  // already started must stay editable without moving its start date.
+  // Only new campaigns are held to "today or later"; a running campaign has to
+  // stay editable without moving its start date.
   const isEditing = Boolean(campaignId);
   const earliestStart = isEditing ? undefined : todayDateInput();
 
   const form = useForm<CampaignFormInput>({
-    // raw: true hands onSubmit the values as typed. Without it the resolver
-    // returns the schema's parsed output, so the dates arrive as Dates and
-    // serialize as ISO timestamps the server's date-only schema rejects.
-    // Validation still runs; only the transform output is discarded.
+    // raw: true keeps the dates as typed. The parsed output would hand back
+    // Dates, which serialize as ISO timestamps the server rejects.
     resolver: zodResolver(
       isEditing ? campaignUpdateSchema : campaignFormSchema,
       undefined,
@@ -109,20 +100,15 @@ export function CampaignForm({
       totalBudgetCents: 0,
       status: "draft",
       startsAt: todayDateInput(),
-      // Opens on a valid range rather than start === end. One day out, so the
-      // default doesn't read as a real scheduling choice.
       endsAt: addDaysToDateInput(todayDateInput(), 1),
       ...defaultValues,
     },
   });
 
-  // The end date can never precede the start, so the end picker starts the day
-  // after whatever start is currently selected.
   const startsAt = toDateInput(form.watch("startsAt"));
   const earliestEnd = startsAt ? addDaysToDateInput(startsAt, 1) : undefined;
 
-  // Moving the start past the end has to surface on the end field immediately,
-  // not only once the form is submitted.
+  // Moving the start past the end has to surface on the end field right away.
   useEffect(() => {
     if (form.formState.isSubmitted || form.getFieldState("endsAt").isDirty) {
       void form.trigger("endsAt");
@@ -235,9 +221,7 @@ export function CampaignForm({
                       step={1}
                       maxLength={12}
                       {...field}
-                      // Strip leading zeros (e.g. typing "40" after a "0"
-                      // default must not leave "040") while still allowing an
-                      // empty field mid-edit.
+                      // Strip leading zeros, but allow an empty field mid-edit.
                       value={(field.value as number | string) ?? ""}
                       onChange={(e) => {
                         const raw = e.target.value.replace(/^0+(?=\d)/, "");
@@ -274,8 +258,6 @@ export function CampaignForm({
                       <Input
                         type="date"
                         className="pr-9"
-                        // Greys out earlier days in the native date picker. The
-                        // schema enforces the same rule for non-picker input.
                         min={name === "endsAt" ? earliestEnd : earliestStart}
                         value={toDateInput(field.value)}
                         onChange={(e) => field.onChange(e.target.value)}

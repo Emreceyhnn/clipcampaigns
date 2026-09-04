@@ -20,16 +20,15 @@ services:
     build: .
     image: emrecyhn/assesment:latest
     restart: unless-stopped
-    # Artık host'a doğrudan açılmıyor; sadece nginx'in erişebildiği
-    # internal docker network üzerinden konuşulur (nginx -> app:3000).
-    # Yerelde `pnpm dev` ile 3000'i kullanmaya devam edebilmek için
-    # istersen APP_PORT ile geçici olarak host'a da açabilirsin:
-    #   APP_PORT=3000 docker compose up
+    # Not published to the host; reachable only over the internal network
+    # (nginx -> app:3000).
     expose:
       - "3000"
     environment:
       # Container-to-container: reach Postgres by service name, not localhost.
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app
+      # Sample data on a fresh database; a no-op once it has rows.
+      SEED_ON_START: "${SEED_ON_START:-true}"
     depends_on:
       postgres:
         condition: service_healthy

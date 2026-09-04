@@ -7,16 +7,14 @@ import { campaigns, users } from "@/server/db/schema";
 import { appRouter } from "@/server/routers/_app";
 import type { TRPCContext } from "@/server/trpc";
 
-// Integration tests against the local Postgres instance (DATABASE_URL), same
-// convention as submission.review.test.ts: each test creates its own rows.
+// Integration tests against the local Postgres instance (DATABASE_URL).
+// Each test creates and cleans up its own rows.
 
 function ctx(overrides: Partial<TRPCContext>): TRPCContext {
   return { userId: null, role: null, ...overrides };
 }
 
-// The router takes calendar days as YYYY-MM-DD strings now (see
-// lib/validations/campaign.ts), keyed off UTC so these tests behave the same
-// regardless of the machine's local time zone.
+// Keyed off UTC so these behave the same regardless of the machine's time zone.
 function daysFromToday(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() + n);
@@ -59,9 +57,7 @@ function adminCaller() {
 
 describe("campaign.create date rules against a live database", () => {
   it("rejects a start date two days before today", async () => {
-    // One day of slack is intentional (see lib/validations/campaign.ts) to
-    // absorb the gap between the client's and server's time zones, so the
-    // rejection case needs to be unambiguously in the past everywhere.
+    // One day of slack is intentional, so this has to be past everywhere.
     await expect(
       adminCaller().campaign.create({
         ...basePayload,
@@ -92,8 +88,7 @@ describe("campaign.create date rules against a live database", () => {
   });
 
   it("rejects a start AND end date both before today with end before start", async () => {
-    // The exact combination a user could produce by leaving both pickers on
-    // old values: neither field alone looks obviously wrong without the other.
+    // What leaving both pickers on old values produces.
     await expect(
       adminCaller().campaign.create({
         ...basePayload,

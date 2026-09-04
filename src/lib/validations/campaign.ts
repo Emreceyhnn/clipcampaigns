@@ -9,10 +9,8 @@ export const campaignStatusEnum = z.enum([
   "completed",
 ]);
 
-// Campaign dates are calendar days, not instants. Sending a Date over the wire
-// serializes it as a UTC instant, so midnight in UTC+3 arrives as the previous
-// evening in UTC and can read as "in the past" on the server. A plain
-// YYYY-MM-DD string has no instant to shift, so both ends agree on the day.
+// Campaign dates are calendar days, not instants. A Date sent over the wire
+// serializes as a UTC instant and can shift the day; a YYYY-MM-DD string can't.
 const dateOnlyString = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD date")
@@ -21,13 +19,11 @@ const dateOnlyString = z
     return new Date(Date.UTC(year, month - 1, day));
   });
 
-// Also accepts a Date so seed scripts and tests can pass one directly; both
-// forms normalize to the same UTC-midnight value.
+// Also accepts a Date so seed scripts and tests can pass one directly.
 const campaignDate = z.union([dateOnlyString, z.date()]);
 
-// "Today" depends on who is asking — UTC+14 is a full day ahead of UTC-12, and
-// the server doesn't know which one is creating the campaign. Backing off a day
-// accepts anyone's real today and rejects only dates that are past everywhere.
+// One day of slack, so the check accepts anyone's real today regardless of
+// their time zone and rejects only days that are past everywhere.
 function earliestAllowedStart(): Date {
   const now = new Date();
   const today = new Date(
@@ -62,8 +58,8 @@ const endAfterStart = (data: CampaignFields) => data.endsAt > data.startsAt;
 const payoutWithinBudget = (data: CampaignFields) =>
   data.payoutPer1kViewsCents <= data.totalBudgetCents;
 
-// Shared by create and edit. Applied per schema rather than on a common base,
-// because .refine() returns an effect that can't be extended further.
+// Applied per schema rather than on the base, since .refine() returns an
+// effect that can't be extended further.
 const endAfterStartRule = {
   message: "End date must be after the start date",
   path: ["endsAt" as const],
@@ -73,8 +69,7 @@ const payoutWithinBudgetRule = {
   path: ["payoutPer1kViewsCents" as const],
 };
 
-// New campaigns must start today or later; editing leaves the start date
-// alone, since an already-running campaign still has to be editable.
+// New campaigns must start today or later; editing leaves the start date alone.
 export const campaignFormSchema = baseCampaignSchema
   .refine((data) => data.startsAt >= earliestAllowedStart(), {
     message: "Start date cannot be in the past",

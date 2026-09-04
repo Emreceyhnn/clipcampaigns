@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { eq, sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 
 import { db } from "@/server/db";
 import {
@@ -8,6 +8,18 @@ import {
   submissions,
   users,
 } from "@/server/db/schema";
+
+// `--if-empty` is how docker-entrypoint.sh calls this: seed a fresh database,
+// but leave one that already has data alone, since main() rebuilds from scratch.
+const onlyIfEmpty = process.argv.includes("--if-empty");
+
+async function hasExistingData(): Promise<boolean> {
+  const [[campaignRow], [userRow]] = await Promise.all([
+    db.select({ total: count() }).from(campaigns),
+    db.select({ total: count() }).from(users),
+  ]);
+  return campaignRow.total > 0 || userRow.total > 0;
+}
 
 function daysAgo(n: number): Date {
   const d = new Date();
@@ -38,8 +50,7 @@ async function upsertUser(email: string, role: "admin" | "creator") {
   const [created] = await db.insert(users).values({ email, role }).returning();
   return created;
 }
-// Children before parents, for the FK constraints. The seed rebuilds every
-// campaign, so these are unqualified deletes.
+// Children before parents, for the FK constraints.
 async function clearCampaignData() {
   await db.delete(submissionMetrics);
   await db.delete(submissions);
@@ -69,6 +80,11 @@ async function insertMetricHistory(submissionId: string, series: number[]) {
 }
 
 async function main() {
+  if (onlyIfEmpty && (await hasExistingData())) {
+    console.log("Database already has data; skipping seed.");
+    return;
+  }
+
   console.log("Seeding database...");
 
   const admin = await upsertUser("admin@example.com", "admin");

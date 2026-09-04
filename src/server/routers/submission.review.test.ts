@@ -7,9 +7,8 @@ import { campaigns, submissionMetrics, submissions, users } from "@/server/db/sc
 import { appRouter } from "@/server/routers/_app";
 import type { TRPCContext } from "@/server/trpc";
 
-// Integration tests against the local Postgres instance (DATABASE_URL). There
-// is no separate test database, so each test creates its own rows and cleans
-// them up, rather than colliding with seed data.
+// Integration tests against the local Postgres instance (DATABASE_URL). There is
+// no separate test database, so each test creates and cleans up its own rows.
 
 function ctx(overrides: Partial<TRPCContext>): TRPCContext {
   return { userId: null, role: null, ...overrides };
@@ -230,7 +229,7 @@ describe("submission.review against a live database", () => {
 
     const today = new Date().toISOString().slice(0, 10);
 
-    // Simulate a second ingest run for the same day: upsert with new values.
+    // A second ingest run for the same day: upsert with new values.
     await db
       .insert(submissionMetrics)
       .values({ submissionId: sub.id, capturedAt: today, views: 9999, likes: 5, comments: 1 })

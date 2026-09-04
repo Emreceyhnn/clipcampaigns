@@ -8,6 +8,13 @@
       "when": 1788445639841,
       "tag": "0000_stormy_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788561748515,
+      "tag": "0001_rainy_starbolt",
+      "breakpoints": true
     }
   ]
 }

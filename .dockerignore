@@ -1,16 +1,15 @@
-# Build context hygiene: keep local state and secrets out of the image.
+# Keep local state and secrets out of the image.
 node_modules
 .next
 .git
 .gitignore
 
-# Secrets — the runtime gets DATABASE_URL from the environment, never baked in.
+# Secrets: the runtime gets DATABASE_URL from the environment.
 .env
 .env.*
 !.env.example
 
 # Local tooling / editor state
-.claude
 .vscode
 .idea
 *.log

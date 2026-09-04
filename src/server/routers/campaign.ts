@@ -51,11 +51,11 @@ export const campaignRouter = router({
         db.select({ total: count() }).from(campaigns).where(where),
       ]);
 
-      // Spend for the campaigns on this page only, in one grouped query rather
-      // than one per row. Mirrors campaign.overview: the latest metric row per
-      // approved submission, floored per submission before summing.
+      // Spend and pending-review counts for this page only, one grouped query
+      // each rather than one per row.
       const pageIds = items.map((c) => c.id);
       const spentByCampaign = new Map<string, number>();
+      const pendingByCampaign = new Map<string, number>();
 
       if (pageIds.length > 0) {
         const latest = db
@@ -77,20 +77,40 @@ export const campaignRouter = router({
           )
           .as("latest");
 
-        const spendRows = await db
-          .select({
-            campaignId: latest.campaignId,
-            budgetSpentCents:
-              sql<number>`coalesce(sum(floor(${latest.views} / 1000) * ${campaigns.payoutPer1kViewsCents}), 0)::int`.mapWith(
-                Number
-              ),
-          })
-          .from(latest)
-          .innerJoin(campaigns, eq(campaigns.id, latest.campaignId))
-          .groupBy(latest.campaignId);
+        // Neither aggregate feeds the other, so they go out together.
+        const [spendRows, pendingRows] = await Promise.all([
+          db
+            .select({
+              campaignId: latest.campaignId,
+              budgetSpentCents:
+                sql<number>`coalesce(sum(floor(${latest.views} / 1000) * ${campaigns.payoutPer1kViewsCents}), 0)::int`.mapWith(
+                  Number
+                ),
+            })
+            .from(latest)
+            .innerJoin(campaigns, eq(campaigns.id, latest.campaignId))
+            .groupBy(latest.campaignId),
+          db
+            .select({
+              campaignId: submissions.campaignId,
+              pending: count(),
+            })
+            .from(submissions)
+            .where(
+              and(
+                eq(submissions.status, "pending"),
+                inArray(submissions.campaignId, pageIds)
+              )
+            )
+            .groupBy(submissions.campaignId),
+        ]);
 
         for (const row of spendRows) {
           spentByCampaign.set(row.campaignId, row.budgetSpentCents);
+        }
+        // Campaigns with nothing pending are absent here and fall through to 0.
+        for (const row of pendingRows) {
+          pendingByCampaign.set(row.campaignId, row.pending);
         }
       }
 
@@ -98,6 +118,7 @@ export const campaignRouter = router({
         items: items.map((campaign) => ({
           ...campaign,
           budgetSpentCents: spentByCampaign.get(campaign.id) ?? 0,
+          pendingSubmissionCount: pendingByCampaign.get(campaign.id) ?? 0,
         })),
         page: input.page,
         pageSize: input.pageSize,
@@ -182,10 +203,8 @@ export const campaignRouter = router({
         )
         .orderBy(asc(submissions.createdAt));
 
-      // The same spend the review mutation checks against, so a row's flag
-      // here matches what happens if that row alone is approved next.
-      // Approving any other row first changes this number — the check on the
-      // actual attempt is what enforces the budget.
+      // The same spend the review mutation checks against, so this flag matches
+      // approving that row next. The check on the attempt is what enforces it.
       const { spentCents: currentSpentCents } = await campaignApprovedTotals(
         campaign.id,
         campaign.payoutPer1kViewsCents
@@ -226,8 +245,7 @@ export const campaignRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "Campaign not found" });
       }
 
-      // Daily views are capped to a recent window so a long-running campaign
-      // can't return an unbounded series.
+      // Capped to a recent window so a long campaign can't return an unbounded series.
       const MAX_DAYS = 90;
       const today = new Date();
       const endsAt = new Date(campaign.endsAt);

@@ -10,8 +10,7 @@ const platformUrlPatterns: Record<Platform, RegExp> = {
   youtube: /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\/.+/i,
 };
 
-// Shared with the client so the platform select can follow what's typed into
-// the URL field, using the same patterns the schema validates against.
+// Shared with the client so the platform select can follow the typed URL.
 export function detectPlatformFromUrl(url: string): Platform | null {
   for (const [platform, pattern] of Object.entries(platformUrlPatterns)) {
     if (pattern.test(url)) return platform as Platform;

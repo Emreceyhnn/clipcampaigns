@@ -38,8 +38,7 @@ async function ingestSubmission(submissionId: string) {
     comments: Math.floor(nextViews * 0.01),
   };
 
-  // Re-running on the same day updates that day's row instead of adding a
-  // second one, which is what makes the job safe to run repeatedly.
+  // Re-running on the same day updates that day's row, keeping this idempotent.
   await db
     .insert(submissionMetrics)
     .values({ submissionId, capturedAt: today, ...metrics })

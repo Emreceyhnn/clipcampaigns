@@ -6,16 +6,14 @@ import { submissionMetrics, submissions } from "./db/schema";
 type Queryable = Pick<typeof db, "selectDistinctOn">;
 type Executable = Pick<typeof db, "execute">;
 
-// Latest views per submission. Submissions with no metrics yet are absent from
-// the map, so callers decide what that means for them.
+// Latest views per submission. Submissions with no metrics yet are absent.
 export async function latestViewsBySubmission(
   submissionIds: string[],
   tx: Queryable = db
 ): Promise<Map<string, number>> {
   if (submissionIds.length === 0) return new Map();
 
-  // DISTINCT ON keeps only the newest row per submission, so months of history
-  // still cost one row each.
+  // DISTINCT ON keeps only the newest row per submission.
   const rows = await tx
     .selectDistinctOn([submissionMetrics.submissionId], {
       submissionId: submissionMetrics.submissionId,
@@ -31,13 +29,10 @@ export async function latestViewsBySubmission(
   return new Map(rows.map((row) => [row.submissionId, row.views]));
 }
 
-// Approved views and the spend they commit for one campaign: the newest metric
-// row per approved submission, floored to whole thousands of views before
-// summing. Flooring per submission (not on the total) keeps this equal to
-// calculateEarningsCents applied one submission at a time.
-//
-// One round trip on purpose: submission.review calls this inside its FOR UPDATE
-// lock, where extra queries widen the window concurrent approvals wait on.
+// Approved views and committed spend for one campaign. Views are floored to
+// whole thousands per submission, not on the total, which keeps this equal to
+// calculateEarningsCents applied one submission at a time. Kept to one round
+// trip because submission.review calls it inside its FOR UPDATE lock.
 export async function campaignApprovedTotals(
   campaignId: string,
   payoutPer1kViewsCents: number,

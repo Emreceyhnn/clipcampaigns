@@ -49,8 +49,7 @@ export function ReviewQueue({ items, campaignId }: { items: QueueItem[]; campaig
   const utils = trpc.useUtils();
 
   const reviewMutation = trpc.submission.review.useMutation({
-    // Drop the row immediately. Approvals can still be refused server-side
-    // (BUDGET_EXCEEDED), so onError restores the exact previous queue.
+    // Drop the row immediately; onError restores it if the server refuses.
     onMutate: async ({ submissionId }) => {
       await utils.campaign.reviewQueue.cancel({ campaignId });
       const previous = utils.campaign.reviewQueue.getData({ campaignId });

@@ -2,16 +2,20 @@ services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
+  
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: app
-    ports:
-      - "5432:5432"
+    
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+
+    expose:
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -20,14 +24,12 @@ services:
     build: .
     image: emrecyhn/assesment:latest
     restart: unless-stopped
-    # Not published to the host; reachable only over the internal network
-    # (nginx -> app:3000).
     expose:
       - "3000"
+   
+    env_file:
+      - .env
     environment:
-      # Container-to-container: reach Postgres by service name, not localhost.
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/app
-      # Sample data on a fresh database; a no-op once it has rows.
       SEED_ON_START: "${SEED_ON_START:-true}"
     depends_on:
       postgres:
@@ -44,6 +46,18 @@ services:
       - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - app
+
+
+  postgres-dev-port:
+    image: alpine/socat:1.8.0.0
+    profiles: ["dev"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    command: TCP-LISTEN:5432,fork,reuseaddr TCP:postgres:5432
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:
